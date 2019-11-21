@@ -1,0 +1,83 @@
+---
+title: "Reproducible Research: Course Project Assessment 2"
+author: "Thawatchai Phakwithoonchai"
+date: "11/16/2019"
+output: html_document
+---
+# Study on severe weather events that impacted to the public health and economy damages across the United States
+
+## Synopsis
+This study is focused on the severe weather events, which affect to both public health and economic problems for communities and municipalities in the United States based on data from the National Oceanic and Atmospheric Administration (NOAA) start in the year 1950 and end in November 2011. The conclusion of the study is described as following:
+
+* **Tornado** is the most harmful event, which affects to the public health in terms of both fatalities and injuries.
+
+* **Flood** is the most harmful event, which affects to the economy in terms of both property and crop damage.
+
+## Data Processing
+
+### Library and data loading
+The following code is used to load the code library and download the data from the source:
+```{r library and data, cache=TRUE}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+fileURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+download.file(fileURL, "./StormData.csv.bz2")
+data <- read.csv("./StormData.csv.bz2")
+head(data)
+```
+
+### Data preparation
+
+* Severe weather events type (EVTYPE), which impacted to the **public health**, can be evaluated based on the summary of total fatalities (FATALITIES) and total injuries (INJURIES). The following code is used to determine the most harmful event type respect to population health.
+```{r data preparation: health}
+data.h <- select(data, c(8, 23, 24))
+sum.data.h <- data.h %>% group_by(EVTYPE) %>% summarise(Sum.FAT = sum(FATALITIES, na.rm = TRUE), Sum.INJ = sum(INJURIES, na.rm = TRUE)) %>% mutate(Total.Health = Sum.FAT+Sum.INJ) %>% arrange(desc(Total.Health)) %>% top_n(n = 5, wt = Total.Health) ## Summarize, rank, and select the top-5 events
+```
+
+* Severe weather events type (EVTYPE), which caused to the **economic consequence**, can be evaluated based on the summary of total property damage (PROPDMG) and total crop damage (CROPDMG); however, the estimated damage are shown in the three significant digits, followed by an exponent value (PROPDMGEXP and CROPDMGEXP), which is an alphabetical character signifying the magnitude of the number. The exponent analysis and verification can be conducted and referred from [link](https://rstudio-pubs-static.s3.amazonaws.com/58957_37b6723ee52b455990e149edde45e5b6.html). To summary in briefs, an exponent value , which used to signify magnitude, can be identified as following:
+   1. " " for x 0
+   2. "-" for x 0
+   3. "?" for x 0
+   4. "+" for x 1
+   5. "0", "1", "2", "3", "4", "5", "6", "7", "8" for x 10
+   6. "B" for x 1000000000
+   7. "h" or "H" for x 100
+   8. "K" for x 1000
+   9. "m" or "M" for x 1000000
+
+The following code is used to determine the events that cause the greatest economic consequences.
+```{r data preparation: economic}
+data.e <- select(data, c(8, 25:28))
+symbol <- sort(unique(as.character(data.e$PROPDMGEXP)))
+exp <- c <- c(rep(0, 3), 1, rep(10, 9), 1e9, rep(1e2, 2), 1e3, rep(1e6, 2))
+conv.tab <- data.frame(symbol, exp) ## create the conversion table
+data.e$PROPDMGCONV <- conv.tab$exp[match(data.e$PROPDMGEXP, conv.tab$symbol)]
+data.e$CROPDMGCONV <- conv.tab$exp[match(data.e$CROPDMGEXP, conv.tab$symbol)]
+data.e <- data.e %>% mutate(PROPDMG = PROPDMG*PROPDMGCONV) %>% mutate(CROPDMG = CROPDMG*CROPDMGCONV) %>% mutate(TOTALDMG = PROPDMG+CROPDMG)
+sum.data.e <- data.e %>% group_by(EVTYPE) %>% summarise(Sum.PROP = sum(PROPDMG, na.rm = TRUE), Sum.CROP = sum(CROPDMG, na.rm = TRUE)) %>% mutate(Total.ECON = Sum.PROP+Sum.CROP) %>% arrange(desc(Total.ECON)) %>% top_n(n = 5, wt = Total.ECON) ## Summarize, rank, and select the top-5 events
+```
+
+## Results
+* **Public Health:** the top 5 events, that impact to the public health, can be shown as following:
+```{r result: health}
+print(sum.data.h)
+```
+
+```{r plot: health}
+health <- sum.data.h %>% gather("Sum.FAT", "Sum.INJ", key = "H.Type", value = "Quantity", factor_key = TRUE) %>% select(-Total.Health) ## Tidy up the data
+plot1 <- ggplot(health, aes(x = reorder(EVTYPE, -Quantity), Quantity), fill = H.Type)
+plot1+geom_bar(aes(fill = H.Type), stat = "identity", position = "stack")+labs(title = "Types of events that most harmful \n with respect to population health across the United States", x = "Event type", y = "Number of population")+theme(plot.title = element_text(hjust = 0.5))+scale_fill_discrete(name = "", labels = c("Fatalities", "Injuries"))
+```
+
+* **Economic Consequence:** the top 5 events, that cause the greatest economic consequence can be shown as following:
+```{r result: economic}
+print(sum.data.e)
+```
+
+```{r plot: economic}
+print(sum.data.e)
+econ <- sum.data.e %>% gather("Sum.PROP", "Sum.CROP", key = "E.Type", value = "Amount", factor_key = TRUE) %>% select(-Total.ECON) ## Tidy up the data
+plot2 <- ggplot(econ, aes(x = reorder(EVTYPE, -Amount), Amount/1e9), fill = E.Type)
+plot2+geom_bar(aes(fill = E.Type), stat = "identity", position = "stack")+labs(title = "Types of events that have the greatest \n economic consequences across the United States", x = "Event type", y = "Cost of damages: Billon USD")+theme(plot.title = element_text(hjust = 0.5))+ scale_fill_discrete(name = "", labels = c("Properties", "Crops"))
+```
