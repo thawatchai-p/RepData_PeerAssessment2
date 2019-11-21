@@ -1,8 +1,10 @@
 ---
-title: "Reproducible Research: Course Project Assessment 2"
+title: 'Reproducible Research: Course Project Assessment 2'
 author: "Thawatchai Phakwithoonchai"
 date: "11/16/2019"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 # Study on severe weather events that impacted to the public health and economy damages across the United States
 
@@ -76,7 +78,6 @@ print(sum.data.e)
 ```
 
 ```{r plot: economic}
-print(sum.data.e)
 econ <- sum.data.e %>% gather("Sum.PROP", "Sum.CROP", key = "E.Type", value = "Amount", factor_key = TRUE) %>% select(-Total.ECON) ## Tidy up the data
 plot2 <- ggplot(econ, aes(x = reorder(EVTYPE, -Amount), Amount/1e9), fill = E.Type)
 plot2+geom_bar(aes(fill = E.Type), stat = "identity", position = "stack")+labs(title = "Types of events that have the greatest \n economic consequences across the United States", x = "Event type", y = "Cost of damages: Billon USD")+theme(plot.title = element_text(hjust = 0.5))+ scale_fill_discrete(name = "", labels = c("Properties", "Crops"))
